@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CV-026: assert translations README matches README_STYLE repository template rules.
+ * CV-026/CV-115: assert translations README matches README_STYLE repository template rules.
  */
 import { readFileSync, existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
@@ -21,9 +21,10 @@ const CLOSING =
   "Every UI string ships in en and it together so the board speaks the same truth everywhere."
 
 const PLANNED_AREAS =
-  /^(en locale tree|it locale tree|Contributor workflow|Key parity checks|Implementation)$/i
+  /^(Full locale catalog|Publishable packages|Implementation)$/i
 
-const BUILT_AREAS = /^(README|LICENSE|CI verify gate)$/i
+const BUILT_AREAS =
+  /^(README|LICENSE|CI verify gate|en play-shell \(lobby\/game\/offers\)|it play-shell \(lobby\/game\/offers\)|Key parity checks|Contributor workflow)$/i
 
 const fail = (msg) => {
   console.error(`FAIL: ${msg}`)
@@ -153,6 +154,10 @@ if (!statusTableMatch) {
   let sawReadmeBuilt = false
   let sawLicenseBuilt = false
   let sawCiBuilt = false
+  let sawEnPlayShell = false
+  let sawItPlayShell = false
+  let sawParity = false
+  let sawWorkflow = false
   let sawImplPlanned = false
   for (const [, areaRaw, stateRaw] of stateCells) {
     const area = areaRaw.trim()
@@ -172,12 +177,30 @@ if (!statusTableMatch) {
     if (/^CI verify gate$/i.test(area) && /^Built$/i.test(state)) {
       sawCiBuilt = true
     }
+    if (
+      /^en play-shell \(lobby\/game\/offers\)$/i.test(area) &&
+      /^Built$/i.test(state)
+    ) {
+      sawEnPlayShell = true
+    }
+    if (
+      /^it play-shell \(lobby\/game\/offers\)$/i.test(area) &&
+      /^Built$/i.test(state)
+    ) {
+      sawItPlayShell = true
+    }
+    if (/^Key parity checks$/i.test(area) && /^Built$/i.test(state)) {
+      sawParity = true
+    }
+    if (/^Contributor workflow$/i.test(area) && /^Built$/i.test(state)) {
+      sawWorkflow = true
+    }
     if (BUILT_AREAS.test(area) && !/^Built$/i.test(state)) {
       fail(`STATUS row "${area}" must be Built; got "${state}"`)
     }
     if (PLANNED_AREAS.test(area) && !/^Planned$/i.test(state)) {
       fail(
-        `STATUS row "${area}" must stay Planned until locale files exist; got "${state}"`
+        `STATUS row "${area}" must stay Planned until that work ships; got "${state}"`
       )
     }
     if (/^Implementation$/i.test(area) && /^Planned$/i.test(state)) {
@@ -187,20 +210,27 @@ if (!statusTableMatch) {
   if (!sawReadmeBuilt) fail('STATUS must include "| README | Built |"')
   if (!sawLicenseBuilt) fail('STATUS must include "| LICENSE | Built |"')
   if (!sawCiBuilt) fail('STATUS must include "| CI verify gate | Built |"')
+  if (!sawEnPlayShell) {
+    fail('STATUS must include "| en play-shell (lobby/game/offers) | Built |"')
+  }
+  if (!sawItPlayShell) {
+    fail('STATUS must include "| it play-shell (lobby/game/offers) | Built |"')
+  }
+  if (!sawParity) fail('STATUS must include "| Key parity checks | Built |"')
+  if (!sawWorkflow) {
+    fail('STATUS must include "| Contributor workflow | Built |"')
+  }
   if (!sawImplPlanned) fail('STATUS must include "| Implementation | Planned |"')
   if (!process.exitCode) ok("STATUS rows use Planned/Built correctly")
 }
 
 if (
-  !/No locale files or contributor workflow docs are in this repository yet/i.test(
-    readme
-  )
+  !/en\/play-shell\.json/i.test(readme) ||
+  !/it\/play-shell\.json/i.test(readme)
 ) {
-  fail(
-    'OVERVIEW must state "No locale files or contributor workflow docs are in this repository yet"'
-  )
+  fail("OVERVIEW/GETTING STARTED must name en/play-shell.json and it/play-shell.json")
 } else {
-  ok("OVERVIEW states no locale files yet")
+  ok("play-shell locale paths named")
 }
 
 if (!/\ben\b/.test(readme) || !/\bit\b/.test(readme)) {
@@ -216,11 +246,33 @@ if (!/web/i.test(readme) || !/mobile/i.test(readme)) {
 }
 
 const claimedBuilt =
-  /\b(Shipped|Live at|users online|locales complete|\d+\s+strings|\d+\s+languages|in production|100%\s+translated)\b/i
+  /\b(Shipped|Live at|users online|locales complete|\d+\s+languages|in production|100%\s+translated)\b/i
 if (claimedBuilt.test(readme)) {
   fail("unverified coverage or production claims found")
 } else {
   ok("no unverified coverage/production claims")
+}
+
+if (!/verify-locales\.mjs/.test(readme)) {
+  fail("TESTING must document scripts/verify-locales.mjs")
+} else {
+  ok("TESTING documents verify-locales.mjs")
+}
+
+if (!existsSync(join(repoRoot, "en", "play-shell.json"))) {
+  fail("missing en/play-shell.json on disk")
+} else {
+  ok("en/play-shell.json present")
+}
+if (!existsSync(join(repoRoot, "it", "play-shell.json"))) {
+  fail("missing it/play-shell.json on disk")
+} else {
+  ok("it/play-shell.json present")
+}
+if (!existsSync(join(repoRoot, "scripts", "verify-locales.mjs"))) {
+  fail("missing scripts/verify-locales.mjs")
+} else {
+  ok("scripts/verify-locales.mjs present")
 }
 
 const forbiddenSources =
@@ -235,7 +287,7 @@ const linkRe = /https:\/\/github\.com\/corvin-chess\/([A-Za-z0-9._-]+)/g
 const linked = new Set()
 let m
 while ((m = linkRe.exec(readme)) !== null) {
-  linked.add(m[1])
+  linked.add(m[1].replace(/\.git$/i, ""))
 }
 
 const knownRepos = new Set([
@@ -327,5 +379,5 @@ for (const bit of requiredHeaderBits) {
 if (!process.exitCode) ok("header, footer, license heading present")
 
 if (!process.exitCode) {
-  console.log("All CV-026 translations README checks passed.")
+  console.log("All CV-115 translations README checks passed.")
 }

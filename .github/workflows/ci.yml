@@ -16,5 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Verify locales
+        run: node scripts/verify-locales.mjs
       - name: Verify README
         run: node scripts/verify-readme.mjs
